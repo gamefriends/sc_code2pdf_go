@@ -92,9 +92,14 @@ func main() {
 	})
 
 	linesPerPage := 50
-	totalPages := (len(allLines) + linesPerPage - 1) / linesPerPage
+	totalLines := 0
+	for _, line := range allLines {
+		lines := pdf.SplitLines([]byte(line), 190)
+		totalLines += len(lines)
+	}
+	totalPages := (totalLines + linesPerPage - 1) / linesPerPage
 
-	fmt.Printf("总共有 %d 行代码，共 %d 页。\n", len(allLines), totalPages)
+	fmt.Printf("总共有 %d 行代码，共 %d 页。\n", totalLines, totalPages)
 
 	// 处理超过 60 页的情况，将多余的代码添加到多个 PDF 文件中
 	if totalPages > 60 {
@@ -104,14 +109,26 @@ func main() {
 			curPdf.AddUTF8Font("SimSun", "", fontPath)
 			curPdf.SetFont("SimSun", "", 10)
 			start := pageIndex * linesPerPage
-			end := min((pageIndex+60)*linesPerPage, len(allLines))
-			for i := start; i < end; i += linesPerPage {
-				if i != start {
-					curPdf.AddPage()
-					curPdf.SetFont("SimSun", "", 10)
-				}
-				for j, line := range allLines[i:min(i+linesPerPage, end)] {
-					curPdf.Text(10, 280-3*float64(j), line)
+			end := min((pageIndex+60)*linesPerPage, totalLines)
+			for i := start; i < end; {
+				curPdf.AddPage()
+				curPdf.SetFont("SimSun", "", 10)
+				y := 10.0
+				for _, line := range allLines {
+					lines := curPdf.SplitLines([]byte(line), 190)
+					for _, wrappedLine := range lines {
+						if i >= end {
+							break
+						}
+						curPdf.SetXY(10, y)
+						curPdf.MultiCell(190, 5, string(wrappedLine), "", "L", false)
+						_, lineHeight := curPdf.GetFontSize()
+						y += lineHeight * 1.2
+						i++
+					}
+					if i >= end {
+						break
+					}
 				}
 			}
 			err = curPdf.OutputFileAndClose(curOutputPath)
@@ -122,13 +139,25 @@ func main() {
 		}
 	} else {
 		// 生成 PDF 内容
-		for i := 0; i < len(allLines); i += linesPerPage {
-			if i != 0 {
-				pdf.AddPage()
-				pdf.SetFont("SimSun", "", 10)
-			}
-			for j, line := range allLines[i:min(i+linesPerPage, len(allLines))] {
-				pdf.Text(10, 280-3*float64(j), line)
+		for i := 0; i < totalLines; {
+			pdf.AddPage()
+			pdf.SetFont("SimSun", "", 10)
+			y := 10.0
+			for _, line := range allLines {
+				lines := pdf.SplitLines([]byte(line), 190)
+				for _, wrappedLine := range lines {
+					if i >= totalLines {
+						break
+					}
+					pdf.SetXY(10, y)
+					pdf.MultiCell(190, 5, string(wrappedLine), "", "L", false)
+					_, lineHeight := pdf.GetFontSize()
+					y += lineHeight * 1.2
+					i++
+				}
+				if i >= totalLines {
+					break
+				}
 			}
 		}
 
