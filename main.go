@@ -11,18 +11,6 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-//go:embed fonts/*
-var embeddedFonts embed.FS
-
-// 检查文件是否存在
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
-}
-
 // 每页宽度
 var PAGE_WIDTH = 190.0
 
@@ -37,6 +25,15 @@ var BATCH_PAGES = 30
 
 // 行间距
 var LINE_GAP = 5.3
+
+// 是否嵌入字体
+var EMBEDED_FONTS = true
+
+// 是否打印日志
+var PRINT_LOG = false
+
+//go:embed fonts/*
+var embeddedFonts embed.FS
 
 func main() {
 	// 解析命令行参数
@@ -76,22 +73,26 @@ func main() {
 	if outputPath == "" {
 		outputPath = fmt.Sprintf("%s_%s.pdf", codeName, time.Now().Format("20060102"))
 	}
-
-	// 检查中文字体文件是否存在
-	fontPath := "fonts/SimSun.ttf"
-	if !fileExists(fontPath) {
-		fmt.Printf("未找到中文字体文件: %s\n", fontPath)
-		os.Exit(1)
-	}
-
 	// 创建 PDF 对象
 	pdf := gofpdf.New("P", "mm", "A4", "")
-	fontBytes, err := embeddedFonts.ReadFile("fonts/SimSun.ttf")
-	if err != nil {
-		fmt.Printf("读取嵌入字体文件时出错: %s\n", err)
-		os.Exit(1)
+	if EMBEDED_FONTS {
+
+		fontBytes, err := embeddedFonts.ReadFile("fonts/SimSun.ttf")
+		if err != nil {
+			fmt.Printf("读取嵌入字体文件时出错: %s\n", err)
+			os.Exit(1)
+		}
+		pdf.AddUTF8FontFromBytes("SimSun", "", fontBytes)
+	} else {
+		// 检查中文字体文件是否存在
+		fontPath := "fonts/SimSun.ttf"
+		if !fileExists(fontPath) {
+			fmt.Printf("未找到中文字体文件: %s\n", fontPath)
+			os.Exit(1)
+		}
+		pdf.AddUTF8Font("SimSun", "", fontPath)
 	}
-	pdf.AddUTF8FontFromBytes("SimSun", "", fontBytes)
+
 	pdf.SetFont("SimSun", "", FONT_SIZE)
 
 	allLines := []string{}
@@ -151,7 +152,9 @@ func main() {
 		start := i * PAGE_LINES
 		end := min((i+1)*PAGE_LINES, totalLines)
 		printPage(pdf, printLines[start:end])
-		fmt.Printf("正在生成第 %d 页，共 %d 页\n", pageNum, totalPages)
+		if PRINT_LOG {
+			fmt.Printf("正在生成第 %d 页，共 %d 页\n", pageNum, totalPages)
+		}
 		pageNum++
 	}
 
@@ -170,7 +173,9 @@ func printPage(pdf *gofpdf.Fpdf, lines []string) {
 	pdf.SetFont("SimSun", "", FONT_SIZE)
 	pdf.SetXY(10, 10)
 	for num, line := range lines {
-		fmt.Printf("%d 行: %s\n", num+1, line)
+		if PRINT_LOG {
+			fmt.Printf("%d 行: %s\n", num+1, line)
+		}
 		pdf.MultiCell(PAGE_WIDTH, float64(LINE_GAP), line, "", "L", false)
 	}
 }
@@ -194,4 +199,13 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// 检查文件是否存在
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
