@@ -34,3 +34,27 @@ go build -tags embedfonts -ldflags "-X main.EmbededFontsStr=true" -o dist/code2p
 # 常规编译(不嵌入字体)
 go build -tags noembedfonts -ldflags "-X main.EmbededFontsStr=false" -o dist/code2pdf_no_embed
 ```
+
+### 编译适用于 Windows 的二进制文件：
+```shell
+GOOS=windows GOARCH=amd64 go build -tags embedfonts -ldflags "-X main.EmbededFontsStr=true" -o dist/code2pdf_embed_windows.exe
+
+
+GOOS=windows GOARCH=amd64 go build -tags noembedfonts -ldflags "-X main.EmbededFontsStr=false" -o dist/code2pdf_no_embed_windows.exe
+```
+
+### 编译适用于 Linux 的二进制文件：
+```shell
+GOOS=linux GOARCH=amd64 go build -tags embedfonts -ldflags "-X main.EmbededFontsStr=true" -o dist/code2pdf_embed_linux
+
+
+GOOS=linux GOARCH=amd64 go build -tags noembedfonts -ldflags "-X main.EmbededFontsStr=false" -o dist/code2pdf_no_embed_linux
+```
+
+### 编译适用于 macOS 的二进制文件：
+```shell
+GOOS=darwin GOARCH=amd64 go build -tags embedfonts -ldflags "-X main.EmbededFontsStr=true" -o dist/code2pdf_embed_macos
+
+
+GOOS=darwin GOARCH=amd64 go build -tags noembedfonts -ldflags "-X main.EmbededFontsStr=false" -o dist/code2pdf_no_embed_macos
+```
