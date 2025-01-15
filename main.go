@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
+//go:embed fonts/*
+var embeddedFonts embed.FS
+
 // 检查文件是否存在
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
@@ -18,6 +22,21 @@ func fileExists(filename string) bool {
 	}
 	return !info.IsDir()
 }
+
+// 每页宽度
+var PAGE_WIDTH = 190.0
+
+// 字体大小
+var FONT_SIZE = 9.0
+
+// 每页行数
+var PAGE_LINES = 50
+
+// 批量页数
+var BATCH_PAGES = 30
+
+// 行间距
+var LINE_GAP = 5.3
 
 func main() {
 	// 解析命令行参数
@@ -67,8 +86,13 @@ func main() {
 
 	// 创建 PDF 对象
 	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.AddUTF8Font("SimSun", "", fontPath)
-	pdf.SetFont("SimSun", "", 10)
+	fontBytes, err := embeddedFonts.ReadFile("fonts/SimSun.ttf")
+	if err != nil {
+		fmt.Printf("读取嵌入字体文件时出错: %s\n", err)
+		os.Exit(1)
+	}
+	pdf.AddUTF8FontFromBytes("SimSun", "", fontBytes)
+	pdf.SetFont("SimSun", "", FONT_SIZE)
 
 	allLines := []string{}
 	// 读取所有代码文件
@@ -91,87 +115,64 @@ func main() {
 		return nil
 	})
 
-	linesPerPage := 50
 	totalLines := 0
+
+	printLines := []string{}
+
 	for _, line := range allLines {
-		lines := pdf.SplitLines([]byte(line), 190)
+		// 如果是空行，忽略
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		lines := pdf.SplitText(line, PAGE_WIDTH)
 		totalLines += len(lines)
+		printLines = append(printLines, lines...)
 	}
-	totalPages := (totalLines + linesPerPage - 1) / linesPerPage
+	totalPages := (totalLines + PAGE_LINES - 1) / PAGE_LINES
 
 	fmt.Printf("总共有 %d 行代码，共 %d 页。\n", totalLines, totalPages)
 
-	// 处理超过 60 页的情况，将多余的代码添加到多个 PDF 文件中
-	if totalPages > 60 {
-		for pageIndex := 0; pageIndex < totalPages; pageIndex += 60 {
-			curOutputPath := fmt.Sprintf("%s_page%d.pdf", outputPath[:len(outputPath)-4], pageIndex/60)
-			curPdf := gofpdf.New("P", "mm", "A4", "")
-			curPdf.AddUTF8Font("SimSun", "", fontPath)
-			curPdf.SetFont("SimSun", "", 10)
-			start := pageIndex * linesPerPage
-			end := min((pageIndex+60)*linesPerPage, totalLines)
-			for i := start; i < end; {
-				curPdf.AddPage()
-				curPdf.SetFont("SimSun", "", 10)
-				y := 10.0
-				for _, line := range allLines {
-					lines := curPdf.SplitLines([]byte(line), 190)
-					for _, wrappedLine := range lines {
-						if i >= end {
-							break
-						}
-						curPdf.SetXY(10, y)
-						curPdf.MultiCell(190, 5, string(wrappedLine), "", "L", false)
-						_, lineHeight := curPdf.GetFontSize()
-						y += lineHeight * 1.2
-						i++
-					}
-					if i >= end {
-						break
-					}
-				}
-			}
-			err = curPdf.OutputFileAndClose(curOutputPath)
-			if err != nil {
-				fmt.Println("生成 PDF 时出错:", err)
-				os.Exit(1)
-			}
-		}
-	} else {
-		// 生成 PDF 内容
-		for i := 0; i < totalLines; {
-			pdf.AddPage()
-			pdf.SetFont("SimSun", "", 10)
-			y := 10.0
-			for _, line := range allLines {
-				lines := pdf.SplitLines([]byte(line), 190)
-				for _, wrappedLine := range lines {
-					if i >= totalLines {
-						break
-					}
-					pdf.SetXY(10, y)
-					pdf.MultiCell(190, 5, string(wrappedLine), "", "L", false)
-					_, lineHeight := pdf.GetFontSize()
-					y += lineHeight * 1.2
-					i++
-				}
-				if i >= totalLines {
-					break
-				}
-			}
-		}
-
-		// 保存 PDF
-		err = pdf.OutputFileAndClose(outputPath)
-		if err != nil {
-			fmt.Println("生成 PDF 时出错:", err)
-			os.Exit(1)
-		}
+	// 如果printLines为空，说明没有代码文件
+	if len(printLines) == 0 {
+		fmt.Println("没有找到任何代码文件。")
+		os.Exit(1)
 	}
 
-	actualPages := (len(allLines) + linesPerPage - 1) / linesPerPage
-	fmt.Printf("实际生成 %d 页。\n", actualPages)
-	fmt.Printf("PDF [%s] 生成成功！\n", codeName)
+	// 如果超出60页, 则 printLines = 前30页 + 后30页
+	if totalPages > 60 {
+		batch_lines := PAGE_LINES * BATCH_PAGES
+		printLines = append(printLines[:batch_lines], printLines[totalLines-batch_lines:]...)
+	}
+	totalPages = (len(printLines) + PAGE_LINES - 1) / PAGE_LINES
+
+	// 每页打印 PAGE_LINES 行代码
+	pageNum := 1
+	for i := 0; i < totalPages; i++ {
+		start := i * PAGE_LINES
+		end := min((i+1)*PAGE_LINES, totalLines)
+		printPage(pdf, printLines[start:end])
+		fmt.Printf("正在生成第 %d 页，共 %d 页\n", pageNum, totalPages)
+		pageNum++
+	}
+
+	// 保存 PDF 文件
+	err = pdf.OutputFileAndClose(outputPath)
+	if err != nil {
+		fmt.Printf("保存 PDF 文件时出错: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("PDF 文件已保存到: %s\n", outputPath)
+
+}
+
+func printPage(pdf *gofpdf.Fpdf, lines []string) {
+	pdf.AddPage()
+	pdf.SetFont("SimSun", "", FONT_SIZE)
+	pdf.SetXY(10, 10)
+	for num, line := range lines {
+		fmt.Printf("%d 行: %s\n", num+1, line)
+		pdf.MultiCell(PAGE_WIDTH, float64(LINE_GAP), line, "", "L", false)
+	}
 }
 
 func isCodeFile(filename string) bool {
