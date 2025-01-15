@@ -1,10 +1,10 @@
 package main
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,15 +27,21 @@ var BATCH_PAGES = 30
 var LINE_GAP = 5.3
 
 // 是否嵌入字体
-var EMBEDED_FONTS = true
+var EmbededFontsStr = "true"
+var EmbededFonts = true
 
 // 是否打印日志
 var PRINT_LOG = false
 
-//go:embed fonts/*
-var embeddedFonts embed.FS
-
 func main() {
+	// 转换 EmbededFontsStr 为 bool
+	var err error
+	EmbededFonts, err = strconv.ParseBool(EmbededFontsStr)
+	if err != nil {
+		fmt.Println("EmbededFonts 变量转换错误:", err)
+		os.Exit(1)
+	}
+
 	// 解析命令行参数
 	inputPath := ""
 	outputPath := ""
@@ -59,8 +65,8 @@ func main() {
 	}
 
 	codeName := filepath.Base(inputPath)
-	if codeName == "." {
-		// 如果输出的是当前目录相对路径： ./ ，则使用当前目录名称作为代码名称
+	if codeName == "." || codeName == "./" || codeName == "/" || codeName == ".." || codeName == "../" {
+		// 如果输出的是当前目录相对路径： . ./ .. ../，则使用当前目录名称作为代码名称
 		currentDir, err := os.Getwd()
 		if err != nil {
 			fmt.Printf("获取当前目录名称时出错: %s\n", err)
@@ -73,10 +79,10 @@ func main() {
 	if outputPath == "" {
 		outputPath = fmt.Sprintf("%s_%s.pdf", codeName, time.Now().Format("20060102"))
 	}
+
 	// 创建 PDF 对象
 	pdf := gofpdf.New("P", "mm", "A4", "")
-	if EMBEDED_FONTS {
-
+	if EmbededFonts {
 		fontBytes, err := embeddedFonts.ReadFile("fonts/SimSun.ttf")
 		if err != nil {
 			fmt.Printf("读取嵌入字体文件时出错: %s\n", err)
