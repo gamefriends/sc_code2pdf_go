@@ -191,6 +191,8 @@ func isCodeFile(filename string) bool {
 	codeExtensions := []string{
 		".java", ".py", ".ts", ".js", ".html", ".css", ".xml", ".sql", ".sh", ".properties", ".yml", ".yaml", ".json",
 		".go", ".php", ".cpp", ".c", ".h", ".hpp", ".cs", ".rb", ".pl", ".lua", ".swift", ".kt", ".scala", ".groovy", ".gradle",
+		".dart", ".r", ".m", ".mm", ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vba", ".vbscript", ".vb", ".bas", ".cls", ".frm",
+		".asp", ".aspx", ".ascx", ".php", ".jsp", ".jspx", ".jspx", ".jspx", ".jspx", ".jspx", ".jspx", ".jspx", ".jspx", ".jspx",
 	}
 	for _, codeExt := range codeExtensions {
 		if ext == codeExt {
