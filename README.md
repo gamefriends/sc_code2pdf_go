@@ -18,6 +18,9 @@ options:
 > 示例:
 
 ```shell
+# 赋予可执行权限
+chmod +x ./code2pdf_embed
+
 # 内嵌字体版本
 ./code2pdf_embed -i path/code_dir -p path/output.pdf
 
