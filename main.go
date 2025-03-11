@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/jung-kurt/gofpdf"
 )
+
+//go:embed fonts
+var embeddedFonts embed.FS
 
 // 每页宽度
 var PAGE_WIDTH = 190.0
@@ -43,8 +47,8 @@ func main() {
 	}
 
 	// 解析命令行参数
-	inputPath := ""
-	outputPath := ""
+	inputPath := "/Users/qixiaowei/Projects/apps/good-job/lib/"
+	outputPath := "/Users/qixiaowei/Projects/apps/good-job/docs/v0.4/copyright/good_habit_code.pdf"
 	for i := 1; i < len(os.Args); i++ {
 		if os.Args[i] == "-i" && i+1 < len(os.Args) {
 			inputPath = os.Args[i+1]
@@ -131,6 +135,9 @@ func main() {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
+
+		// 过滤掉特殊字符
+		line = sanitizeText(line)
 		lines := pdf.SplitText(line, PAGE_WIDTH)
 		totalLines += len(lines)
 		printLines = append(printLines, lines...)
@@ -216,4 +223,18 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func sanitizeText(text string) string {
+	var result []rune
+	for _, r := range text {
+		// 只保留基本ASCII字符和常见中文字符范围
+		if r < 65536 {
+			result = append(result, r)
+		} else {
+			// 替换超出范围的字符为空格或问号
+			result = append(result, ' ')
+		}
+	}
+	return string(result)
 }
